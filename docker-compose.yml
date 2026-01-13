@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "8801:8801"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY}
+      - GROK_API_KEY=${GROK_API_KEY}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - BACKEND_URL=http://backend:8801
+      - FRONTEND_URL=http://frontend:3301
+    volumes:
+      - ./backend:/app
+    networks:
+      - cv-matching-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8801/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      - pinecone
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3301:3301"
+    environment:
+      - BACKEND_URL=http://backend:8801
+      - STREAMLIT_SERVER_PORT=3301
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - STREAMLIT_SERVER_HEADLESS=true
+    volumes:
+      - ./frontend:/app
+    networks:
+      - cv-matching-network
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3301/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  pinecone:
+    # Pinecone is a cloud service, this is a placeholder
+    # In production, use Pinecone cloud directly
+    image: python:3.11-slim
+    environment:
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+    networks:
+      - cv-matching-network
+
+networks:
+  cv-matching-network:
+    driver: bridge
+
+volumes:
+  pinecone_data:
